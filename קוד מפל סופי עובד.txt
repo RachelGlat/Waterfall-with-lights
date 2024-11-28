@@ -1,0 +1,267 @@
+#include  <Adafruit_NeoPixel.h>
+
+#define PIN 3   // input pin Neopixel is attached to
+
+#define NUMPIXELS  8 // number of neopixels in strip
+
+#include "TFT9341Touch.h"
+
+tft9341touch LcdTouch (10, 9, 7, 2); //cs, dc ,tcs, tirq
+
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+
+const int IN_A0 = A2; // analog input
+const int IN_D0 = 5; // digital input
+int value_A0;
+bool value_D0;
+int colorLight=10;
+int ButtonColor=0,ButtonStatus=0;
+int delayval = 100; // timing delay in milliseconds
+int blueColor=0;
+int greenColor=0;
+int redColor=0;
+uint16_t x, y,z,w;
+String str;
+const int trigPin = A5;
+const int echoPin = A4;
+float duration, distance;
+const int pumpPin = A1;
+
+struct Color {
+  int colorNumber;    // מספר הצבע
+  uint16_t  colorName;    //שם הצבע
+  bool IsStormy;  //האם סוער
+  int rArr[3];
+  int gArr[3];
+  int bArr[3];
+};
+
+Color colors[] = {
+  {10, GREEN,false,{0,40,100},{255,255,255},{0,40,100}},   
+  {11, YELLOW, false,{225,255,255},{220,255,255},{0,15,90}},   
+  {12, ORANGE, true,{255,255,255},{100,150,195},{0,75,155}},   
+  {13, RED, true,{255,255,255},{0,0,100},{0,40,100}},   
+  {14, WHITE, false,{255,255,255},{255,255,255},{255,255,255}},   
+  {15, MAGENTA, false,{255,205,240},{0,100,210},{40,255,255}},   
+  {16, BLUE, true,{0,70,120},{0,70,120},{255,255,255}},   
+  {17, PURPLE, true,{100,150,190},{0,40,130},{205,255,255}}   
+};
+
+
+void setup() {
+
+ Serial.begin(9600);
+ pinMode (IN_A0, INPUT);
+ pinMode (IN_D0, INPUT);
+ pinMode(pumpPin, OUTPUT);
+ pinMode(trigPin, OUTPUT);
+ pinMode(echoPin, INPUT);
+ Serial.begin(9600);
+ pixels.begin();
+
+ LcdTouch.begin();
+ LcdTouch.clearButton();
+ LcdTouch.setRotation(0);//0,1,2,3
+ LcdTouch.setTextSize (2);
+ LcdTouch.setCursor (40, 40);
+ LcdTouch.set(3780, 372, 489, 3811); //Calibration
+
+ screenMain();
+}
+
+void loop() {  
+
+
+  value_A0 = analogRead(IN_A0); // reads the analog input from the IR distance sensor
+  value_D0 = digitalRead(IN_D0);// reads the digital input from the IR distance sensor
+//  Serial.print(" Analogue = "); 
+//  Serial.print(value_A0);
+//  Serial.print("\t Digital ="); 
+//  Serial.println(value_D0);
+  delay(100);
+
+  lightOff();
+          
+  if (LcdTouch.touched())
+  {
+    LcdTouch.readTouch();
+    x = LcdTouch.xTouch;
+    y = LcdTouch.yTouch;
+
+    int ButtonNum = LcdTouch.ButtonTouch(x, y);
+    //str="x=" + String(x) + " y=" + String(y) + " Bu=" + String(ButtonNum);
+    LcdTouch.fillCircle(x, y, 3, WHITE);
+
+    if (ButtonNum == 1) 
+    {
+      screenColor();
+      if (LcdTouch.touched())
+      {
+         LcdTouch.readTouch();
+         x = LcdTouch.xTouch;
+         y = LcdTouch.yTouch;
+
+         ButtonColor = LcdTouch.ButtonTouch(x, y);
+         Serial.println(ButtonColor);
+
+         switch (ButtonColor) {
+            case 10: 
+             colorLight=0;
+             break;
+            case 11: 
+              colorLight=1;
+              break;
+            case 12:
+              colorLight=2;
+              break;
+            case 13:
+              colorLight=3;
+              break;
+            case 14:
+              colorLight=4;
+              break;
+            case 15:
+              colorLight=5;
+              break;
+            case 16:
+              colorLight=6;
+              break;
+            case 17:
+              colorLight=7;
+              break;
+            default:
+              colorLight=10;
+              break;
+  }
+      screenMain();
+    }
+ }
+
+ 
+  else if (ButtonNum == 2) 
+  {
+      screenWater(); 
+      if (LcdTouch.touched())
+      {
+        LcdTouch.readTouch();
+        x = LcdTouch.xTouch;
+        y = LcdTouch.yTouch;
+
+        ButtonStatus = LcdTouch.ButtonTouch(x, y);
+        Serial.println(ButtonStatus);
+        if(ButtonStatus==1)
+        {
+           digitalWrite(pumpPin, HIGH);
+        }
+        else
+        {
+          digitalWrite(pumpPin, LOW);
+        }
+        screenMain();
+      }
+
+      
+  }   
+ }
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  duration = pulseIn(echoPin, HIGH);
+  distance = (duration*.0343)/2;
+  Serial.print("Distance: ");
+  Serial.println(distance);
+
+  if (distance < 15 ) 
+   { 
+    if(colorLight==10)
+    {
+       setColor();
+       for (int i=0; i <NUMPIXELS ; i++)
+       {
+         pixels.setPixelColor(i, pixels.Color(redColor,greenColor,blueColor));
+         pixels.show();
+         delay(delayval);
+       }
+    }
+    else
+    {
+      for(int j=0;j<3;j++)
+      {
+       redColor = colors[colorLight].rArr[j];
+       greenColor = colors[colorLight].gArr[j];
+       blueColor = colors[colorLight].bArr[j];
+       for (int i=0; i <NUMPIXELS ; i++)
+       {
+            pixels.setPixelColor(i, pixels.Color(redColor,greenColor,blueColor));
+            Serial.println(redColor);
+            Serial.println(greenColor);
+            Serial.println(blueColor);
+            pixels.show();
+            delay(delayval);
+       }
+     }    
+    }    
+   } 
+  else 
+  {
+  // Turn off all LEDs
+    for (int i = 0; i < NUMPIXELS; i++) {
+        pixels.setPixelColor(i, pixels.Color(0, 0, 0));
+  }
+  pixels.show();
+  }
+  delay(100);
+}
+
+
+void screenMain() {
+  LcdTouch.fillScreen (BLACK);
+  LcdTouch.printheb(25, 40, "פנינת נוי", 2, WHITE);
+  LcdTouch.drawButton(1, 15, 90 , 290, 40, 10, RED, WHITE, "הרואת", 2); // NumButton, x, y, width, height, r, Color, textcolor, label, textsize);
+  LcdTouch.drawButton(2, 15,  140, 290, 40, 10, RED, WHITE, "לפמ", 2);
+}
+
+void screenColor() {
+  LcdTouch.fillScreen (BLACK);
+  LcdTouch.setTextColor(WHITE);
+  LcdTouch.setTextSize (1);
+  LcdTouch.setCursor (45, 30);
+  LcdTouch.setTextSize (3);
+  LcdTouch.print ("הרואת יעבצ רחב");
+  LcdTouch.drawButton(10, 15,  90, 60, 60, 10, GREEN, WHITE, "", 2);
+  LcdTouch.drawButton(11, 90,  90, 60, 60, 10, YELLOW, WHITE, "", 2);
+  LcdTouch.drawButton(12, 165,  90, 60, 60, 10,ORANGE , WHITE, "", 2);
+  LcdTouch.drawButton(13, 240,  90, 60, 60, 10,RED , WHITE, "", 2);
+  LcdTouch.drawButton(14, 15,  165, 60, 60, 10, WHITE, WHITE, "", 2);
+  LcdTouch.drawButton(15, 90,  165, 60, 60, 10,MAGENTA , WHITE, "", 2);
+  LcdTouch.drawButton(16, 165,  165, 60, 60, 10, BLUE, WHITE, "", 2);
+  LcdTouch.drawButton(17, 240,  165, 60, 60, 10, PURPLE, WHITE, "", 2);
+  while (!LcdTouch.touched());
+}
+
+void screenWater() {
+  LcdTouch.fillScreen (BLACK);
+  LcdTouch.setTextColor(WHITE);
+  LcdTouch.setCursor (30, 30);
+  LcdTouch.setTextSize (2);
+  LcdTouch.print ("לפמה םרזל םימ תומכ רחב");
+  LcdTouch.drawButton(20, 40,  80, 240, 40, 15, RED, WHITE, " קולד", 2);
+  LcdTouch.drawButton(21, 40,  130, 240, 40, 15, RED, WHITE, " הבוכמ", 2);
+  while (!LcdTouch.touched());
+}
+
+
+void setColor(){
+  redColor = random(0, 255);
+  greenColor = random(0,255);
+  blueColor = random(0, 255);
+}
+
+void lightOff()
+{
+  pixels.setPixelColor(0, pixels.Color(0, 0, 0));//שיהיה כבוי בהתחלה
+  pixels.show();
+}
